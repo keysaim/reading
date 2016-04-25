@@ -76,6 +76,7 @@
 * The '#' is used to add the '0', '0x', '0X'
 * If space is after the '%', like '% x', then it will insert the space for each hex digits, like 'e3 83 97 e3 83 ad e3 82 b0 e3 83 a9 e3 83 a0'
 * The 'strconv' package includes many format functions
+* The '%t' show true or false, '%T' show the type
 
 #### Unicode
 * Unicode version 8 use 4 bytes for each charactor, also knows as UTF-32/UCS-4. In Go, the 'rune' is used for this.
@@ -111,3 +112,159 @@ const (
 )
 ```
 The 'iota' is 'int' type, so it will overflow.
+
+## Section 4, Composite Types
+
+### About array type
+* The size if part of the type, so '[3]int' is different type from '[5]int'
+* Can init with specific indices
+```go
+symbol := [...]string{0: "$", 2: "9", 5: "!", 9: """}
+r := [...]int{99: -1}
+```
+All the ones not in the indices will be init as the zero value.
+* Arrays are comparable, 'equal' when the two arrays have the same type and all the elements are the same
+
+### About the slice type
+* Index beyonds the capcity will cause panic, while beyonds length will expend the slice
+* 's[i:j]' will share the same underlying array with slice 's'
+* Slices are not comparable. For '[]byte], using the 'bytes.Equal' to compare
+* Nil slice has zero length and zero capcity, while the reverse is not right.
+```go
+	var s []int    // len(s) == 0, s == nil
+    s = nil        // len(s) == 0, s == nil
+    s = []int(nil) // len(s) == 0, s == nil
+    s = []int{}    // len(s) == 0, s != nil
+```
+* Nil slice and non-nil slice with zero length should be treated in the same way, so using 'len(s) == 0' to check if a slice is empty
+* Under the hood, 'make' creates an unnamed array variable and returns a slice of it
+* With append, slice may enlarge its space to hold new elements. The copy will handle the overlap of the underlying array.
+
+
+### About the map type
+* Lookup using a key not existing will return the zero value of the value type.
+```go
+a := make(map[string]int)
+a["bob"] = a["bob"] + 1
+fmt.Println(a["bob"]) //will output 1
+```
+* You can use the '++' to increase the value
+```go
+a := make(map[string]int)
+a["bob"]++
+fmt.Println(a["bob"]) //will output 1
+```
+
+* A map element is not variable, you can never try to get its address. ***But on the different, you can get the address of a slice element***
+```go
+_ = &a["bob"] //compile error
+```
+
+* Zero value of the map is nil.
+```go
+    var ages map[string]int
+    fmt.Println(ages == nil)    // "true"
+    fmt.Println(len(ages) == 0) // "true"
+```
+
+* A nil map supprts operations: lookup, delete, len, range, but not ***store value***.
+```go
+var aa map[string]int
+aa["bob"] = 100 //panic, the map must be created before storing any value
+```
+
+* The maps are not comparable except for comparision with nil.
+
+### About the struct type
+* Will compile error
+```go
+func create(id int) Employee {
+    //...
+}
+create(100).Name = "bob" //compile error, change the return type to *Employee will be ok
+```
+
+* Fields not exported in a struct cannot be inited in another package
+```go
+	package p
+    type T struct{ a, b int } // a and b are not exported
+
+```
+```go
+    package q
+    import "p"
+    var _ = p.T{a: 1, b: 2} // compile error: can't reference a, b
+    var _ = p.T{1, 2}       // compile error: can't reference a, b
+```
+And this is also wrong:
+```go
+	package p
+    type T struct{ A, b, C int } // a and b are not exported
+
+```
+```go
+    package q
+    import "p"
+    var _ = p.T{1, 2}       // compile error: can't reference A, b
+    var _ = p.T{A: 1, C: 2} // ok
+```
+
+* Embedding will form an **anoymous** field of the struct with the implicit field name of the embedded type.
+```go
+type Point struct {
+	X, Y int
+}
+
+type Circle struct {
+    Point // form a anoymous field with implicit field name "Point"
+	Radius int 
+}
+
+type Wheel struct {
+    Circle // form a anoymous field with implicit field name "Circle"
+	Spokes int 
+}
+```
+So you cannot embed the same type for more than twice, as their implicit names will conflict.
+
+* The implicit name can be optional for dot expression
+```go
+w := new(Wheel)
+w.Circle.Radius = 100
+w.Radius = 100 // Both of the two are valid
+```
+
+* The embedded struct cannot init by normal struct literal
+```go
+w = Wheel{8, 8, 5, 20}                       // compile error: unknown fields
+w = Wheel{X: 8, Y: 8, Radius: 5, Spokes: 20} // compile error: unknown fields
+```
+You must init like this:
+```go
+	w = Wheel{Circle{Point{8, 8}, 5}, 20}
+     w = Wheel{
+        Circle: Circle{
+             Point:  Point{X: 8, Y: 8},
+		Radius: 5,
+        },
+        Spokes: 20, // NOTE: trailing comma necessary here (and at Radius)
+     }
+     fmt.Printf("%#v\n", w)
+     // Output:
+     // Wheel{Circle:Circle{Point:Point{X:8, Y:8}, Radius:5}, Spokes:20}
+w.X = 42
+     fmt.Printf("%#v\n", w)
+     // Output:
+     // Wheel{Circle:Circle{Point:Point{X:42, Y:8}, Radius:5}, Spokes:20}
+```
+
+### About the JSON
+* ***field tag*** is a string of metadata associated at compile time with the field of a struct. It's a 'key:"value"' pair.
+```go
+Year  int  `json:"released"`
+Color bool `json:"color,omitempty"`
+```
+
+* The JSON field tag format: `json:"<json name>,[addition option]"`
+* When Marshal, the not exported fields will be ignored; When Unmarshal, the fields of JSON that are not in the data struct will be ignored
+* Associating JSON names with Go struct names during Unmarshaling is ***case-insensitive***, so no need to add the JSON field tag for simple field name. But for the Marshal, you must define the JSON field tag, or the capital name will be used.
