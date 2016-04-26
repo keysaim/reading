@@ -268,3 +268,60 @@ Color bool `json:"color,omitempty"`
 * The JSON field tag format: `json:"<json name>,[addition option]"`
 * When Marshal, the not exported fields will be ignored; When Unmarshal, the fields of JSON that are not in the data struct will be ignored
 * Associating JSON names with Go struct names during Unmarshaling is ***case-insensitive***, so no need to add the JSON field tag for simple field name. But for the Marshal, you must define the JSON field tag, or the capital name will be used.
+
+## Section 4, Functions
+
+### Function definition
+* If return only one unamed type, the '()' can be omitted in the return result definition.
+* Parameters and named results share the same level of the function outermost block.
+
+### Go function stack
+* Go has a variable size function stack, so the recursive is always safe.
+
+### About the defer
+* The 'defer' forms a stack and wil be called by stack before the function return.
+* Even panic in the function, the 'defer' will be called too.
+
+## Section 6, Methods
+
+### About the receiver
+* The compiler will perform implicit '&p' on the variable when the receiver is the pointer.
+```go
+type Point struct {
+    x int
+    y int
+}
+
+func (p *Point) Offset(off int) {
+    p.x += off
+    p.y += off
+}
+
+//...
+p := Point{}
+p.Offset(10) // This is valid, as the compiler will perform implicit '&p' on this.
+Point{1, 2}.Offset(100) // compile error, as it's not the variable and cannot be addressed.
+```
+* It's true on these three scenarios:
+    1) The type of the variable is the same as the receiver parameter
+    2) The type of the variable is T, while the receiver parameter is *T (The compiler will implicitly perform '&p')
+    3) The type of the variable is *T, while the receiver parameter is T (The compiler will implicitly perform '*p')
+
+* Bind the method with the receiver and assign to a variable, then you can call the method without the receiver via the variable. This is called ***method value***
+```go
+p := Point{1, 2}
+q := Point{4, 6}
+distanceFromP := p.Distance
+fmt.Println(distanceFromP(q))
+```
+
+* Assigning the method to variable directly is called ***method expression***, you can then call it by providing the receiver as the first parameter.
+```go
+p := Point{1, 2}
+q := Point{4, 6}
+distance := Point.Distance   // method expression
+fmt.Println(distance(p, q))  // "5"
+```
+
+### About the embedding
+* Embedding a type will inherit all its methods. In terms of implementation, the compiler will generate the wrapped methods with the type.
