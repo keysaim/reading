@@ -325,3 +325,149 @@ fmt.Println(distance(p, q))  // "5"
 
 ### About the embedding
 * Embedding a type will inherit all its methods. In terms of implementation, the compiler will generate the wrapped methods with the type.
+
+### About the encapsulation
+* All fields in the struct is visible to any function or any method in the same package
+
+## Section 7, Interfaces
+
+### About the interface satisfaction
+* Though you can use the type T to access `*T` method (the compiler will perform it implicitly), but you cannot use type T to satisfy the `*T` type interface.
+
+### interface values
+* An interface value is composed of: dynamic type and dynamic value. The type is the dynamic type of the value.
+```go
+var w io.Writer // both the type and value are nil
+if w == nil { // this is true
+    fmt.Println('is nil')
+}
+
+var buf *bytes.Buffer // buf is a nil pointer
+w = nil // both the type and value are nil
+w = buf // the type is '*bytes.Buffer' (not nil), while the value is nil
+if w == nil { // this is false, as the type of w is not nil, so the w is not nil
+    fmt.Println('is nil')
+}
+
+```
+
+* interface value comparation may cause panic
+```go
+var x interface{} = []int{1, 2, 3}
+fmt.Println(x == x) // panic: comparing uncomparable type []int
+```
+When comparation, both the type and value must be comparable. Similar risk eixsts when using the interfaces as the map keys.
+
+* To report the dynamic type of an interface value, using the '%T'
+```go
+var w io.Writer
+fmt.Printf("%T\n", w) // "<nil>"
+w = os.Stdout
+fmt.Printf("%T\n", w) // "*os.File"
+w = new(bytes.Buffer)
+fmt.Printf("%T\n", w) // "*bytes.Buffer"
+```
+
+### Type assertion
+* x.(T), if T is a concrete type, it will check if x's dynamic type is identical to T, if so the results is the dynamic value, or it will panic. If the T is a interface type, it will first check if x's dynamic type satisfies T, if so, a new interface value will be returned with the new dynamic type T and the same dynamic value.
+
+* No matter what type was asserted, if the operand is a nil interface value, the type assertion fails
+
+### Type switch
+* take one example, you can assign the x.(type) to a new variable
+```go
+func sqlQuote(x interface{}) string {
+         switch x := x.(type) {
+         case nil:
+             return "NULL"
+         case int, uint:
+             return fmt.Sprintf("%d", x) // x has type interface{} here.
+         case bool:
+             if x {
+                 return "TRUE"
+			}
+             return "FALSE"
+         case string:
+             return sqlQuoteString(x) // (not shown)
+         default:
+			panic(fmt.Sprintf("unexpected type %T: %v",wxw,wx.i)t)-ebooks.info }
+}
+```
+
+## Section 8, Goroutines and Channels
+### Channels
+* The channel is a reference.
+* channels are comparable, it's true when both are references to the same channel data structure.
+* A channel can be closed, send to a closed channel will cause panic, while receive on a closed channel, it will yield zero value of the channel element type after the channel is empty.
+* To test on a closed channel, use like ```x, ok := <- c```, to be comvinent, you can use the 'range' to loop the channel until it's drain and closed.
+```go
+for x := range naturals { // the loop will exit when the channel 'naturals' is drained and closed.
+	squares <- x * x
+}
+```
+* It's not necessary to close the channel when you finish with it. Only close it when you want to tell the receive that you will sent anymore data. It's different from the file, you must always close a file after finishing with it.
+* Unidirectional channels: the 'chan<- int' is send-only channel, the '<-chan int' is the receive-only channel. And the 'close' must not be applied on the receive-only channel. It will implicitly convert 'chan int' to 'chan<- int' and '<-chan int'.
+
+* To get the capcity of the channel, using the 'cap(c)', while the 'len(c)' returns the currently number of the buffered elements.
+
+* An typical example for loop paralle
+```go
+func makeThumbnails6(filenames <-chan string) int64 {
+         sizes := make(chan int64)
+         var wg sync.WaitGroup // number of working goroutines
+         for f := range filenames {
+             wg.Add(1)
+             // worker
+             go func(f string) {
+                 defer wg.Done()
+                 thumb, err := thumbnail.ImageFile(f)
+                 if err != nil {
+                     log.Println(err)
+						 return
+                         }
+                 info, _ := os.Stat(thumb) // OK to ignore error
+                 sizes <- info.Size()
+             }(f)
+		 }
+         // closer
+         go func() {
+			 wg.Wait()
+             close(sizes)
+         }()
+         var total int64
+         for size := range sizes {
+             total += size
+         }
+         return total
+     }
+```
+
+* Using a buffered channel as a semaphore
+```go
+var sema = make(chan struct{}, 10)
+func dowork() {
+    sema <- struct{}{} // acquire the sema
+    defer func() { <-sema }() // release the sema
+    // do something here
+    //...
+}
+```
+
+* Using select with a closeable channel to cancel the goroutines. Closing the channel is like broadcasting the goroutines to let them exit gracefully.
+```go
+func main() {
+    done := make(chan struct{})
+    jc := make(chan string)
+    go func() {
+        select {
+        case <-done:
+            return
+        case job := <-jc:
+            //do something with the job
+        }
+    }()
+
+    jc<- "hello"
+    close(done)
+}
+```
