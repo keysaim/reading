@@ -530,3 +530,137 @@ func (memo *Memo) Get(key string) (value interface{}, err error) {
 * Goroutine has dynamic size of stack, which is up to 1GB while the OS thread is typical 2MB.
 * Goroutines schedule implicitly by certain Go language constructs, like time.Sleep, channel block, mutex block, etc, no need to switch kernel context. While the OS threads schedule is invoked every few ms, need to switch kernel context.
 * GOMAXPROCS is the default the number of the CPU on the machine.
+
+## Section 10, Packages and The Go Tool
+### Go build
+* Using flag '-u' in 'go get' will update the current repo to the latest version.
+* The 'go build -i' will install the dependent packages and will decrease the compile time next time.
+* Cross compile
+```sh
+$ GOARCH=386 go build -i gopl.io/ch10/cross // it will install in $GOPATH/pkg/386
+```
+* Files like 'net_linux.go' or 'asm_amd64.s', the compiler will compile it based on the env.
+* Comment *before* the file package declaration can also control the compiling. `// +build linux darwin` means only compile it for linux and darwin, `// +build ignore' means never compile this file.
+
+### Go doc
+* The first sentence is usually a summary that starts with the declared name.
+```go
+// Fprintf formats according to a format specifier and writes to w.
+// It returns the number of bytes written and any write error encountered.
+func Fprintf(w io.Writer, format string, a ...interface{}) (int, error)
+```
+* Check the doc
+```sh
+$ go doc json.encode
+func (dec *Decoder) Decode(v interface{}) error
+    Decode reads the next JSON-encoded value from its input and stores
+    it in the value pointed to by v.
+```
+
+* Export the doc to html and serve it
+```sh
+$ godoc -http :8000
+```
+And then, access the doc via http://localhost:8000/pkg
+
+### Internal packages
+* package under the 'internal' directory is the internal package
+* Can be seen by the packages under the parent of the 'internal' directory
+```sh
+net/http
+net/http/internal/chunked
+net/http/httputil
+net/url
+```
+The 'net/http/internal/chunked' can be seen by 'net/http', 'net/http/httputil', while not seen by 'net/url'
+
+### Go list
+* list the packages
+* List all the packages under the workspace.
+```sh
+$ go list ...
+```
+
+* List all under path
+```sh
+$ go list gopl.io/ch3/...
+```
+
+* List by matched pattern
+```sh
+$ go list ...xml...
+encoding/xml
+gopl.io/ch7/xmlselect
+```
+
+* `go list -json` to show by json format of the package detail info.
+```sh
+$ go list -json hash
+{
+    "Dir": "/home/gopher/go/src/hash",
+        "ImportPath": "hash",
+        "Name": "hash",
+        "Doc": "Package hash provides interfaces for hash functions.",
+        "Target": "/home/gopher/go/pkg/darwin_amd64/hash.a",
+        "Goroot": true,
+        "Standard": true,
+        "Root": "/home/gopher/go",
+        "GoFiles": [
+            "hash.go" ],
+            "Imports": [
+                "io"
+            ],
+            "Deps": [
+                "errors",
+            "io",
+            "runtime",
+            "sync",
+            "sync/atomic",
+            "unsafe"
+            ] 
+}
+```
+* '-f ' to customize the output format
+```sh
+$ go list -f '{{join .Deps " "}}' strconv
+ errors math runtime unicode/utf8 unsafe
+```
+It lists all the dependencies. Actually, the '-f' is like using the text template to format the output.
+
+## Section 11, Testing
+* Within *_test.go files, three kinds of functions are treated specially : tests, benchmarks, and examples. Function starts with 'Test' is for tests, 'Benchmark' is for benchmarks, 'Example' is for examples.
+
+### Tests
+* '-run' to run specific cases using the regular expression
+```sh
+$ go test -v -run="French|Canal"
+     === RUN TestFrenchPalindrome
+     --- FAIL: TestFrenchPalindrome (0.00s)
+         word_test.go:28: IsPalindrome("été") = false
+     === RUN TestCanalPalindrome
+     --- FAIL: TestCanalPalindrome (0.00s)
+         word_test.go:35: IsPalindrome("A man, a plan, a canal: Panama") = false
+     FAIL
+     exit status 1
+     FAIL    gopl.io/ch11/word1  0.014s
+```
+
+#### External Test Package
+* Sometimes, in case of a cycle of dependencies in test files, use the '_test' to declare a external test package. For example, in 'net/url', the test file may declare package like 'package url_test', the compiler will create an external package for this implicitly.
+```sh
+$ go list -f={{.GoFiles}} fmt
+     [doc.go format.go print.go scan.go]
+$ go list -f={{.TestGoFiles}} fmt
+     [export_test.go]
+$ go list -f={{.XTestGoFiles}} fmt
+     [fmt_test.go scan_test.go stringer_test.go]
+```
+The 'XTestGoFiles' is the external test package files.
+
+* In external package test file, you cannot access the private variable or functions in the tested package. In order to do while-box testing in external package test files, using a export file to export the private things. And this file is always called 'export_test.go'
+For example, the 'export_test.go' file for the 'fmt' package is:
+```go
+package fmt
+var IsSpace = isSpace
+```
+
