@@ -399,7 +399,7 @@ func sqlQuote(x interface{}) string {
 * The channel is a reference.
 * channels are comparable, it's true when both are references to the same channel data structure.
 * A channel can be closed, send to a closed channel will cause panic, while receive on a closed channel, it will yield zero value of the channel element type after the channel is empty.
-* To test on a closed channel, use like ```x, ok := <- c```, to be comvinent, you can use the 'range' to loop the channel until it's drain and closed.
+* To test on a closed channel, use like `x, ok := <- c`, to be comvinent, you can use the 'range' to loop the channel until it's drain and closed.
 ```go
 for x := range naturals { // the loop will exit when the channel 'naturals' is drained and closed.
 	squares <- x * x
@@ -471,3 +471,62 @@ func main() {
     close(done)
 }
 ```
+
+
+## Section 9, Concurrency with Shared Variables
+### Mutex
+* defer will be be executed even the func panic
+* The mutex is not ***re-entrant***, which means that it can not be locked recursively.
+* Different goroutines may run on different CPU, different statements may be reordered by the modern compiler and CPU when they are not dependent on each other.
+```go
+     var x, y int
+     go func() {
+         x = 1 // A1
+         fmt.Print("y:", y, " ") // A2
+     }()
+     go func() {
+         y = 1                   // B1
+         fmt.Print("x:", x, " ") // B2
+     }()
+```
+The result may be "x = 0, y = 0", as the CPU or compiler may reorder the statements; the different goroutines may run on different CPU, and the update may happen on each CPU cache and doesn't sync with main memory on time. The mutex will make sure the right order.
+
+* Duplicate suppression
+```go
+type entry struct {
+         res   result
+         ready chan struct{} // closed when res is ready
+     }
+     func New(f Func) *Memo {
+         return &Memo{f: f, cache: make(map[string]*entry)}
+￼￼}
+type Memo struct {
+    f     Func
+    mu    sync.Mutex // guards cache
+    cache map[string]*entry
+}
+func (memo *Memo) Get(key string) (value interface{}, err error) {
+    memo.mu.Lock()
+        e := memo.cache[key]
+        if e == nil {
+            // This is the first request for this key.
+            // This goroutine becomes responsible for computing
+            // the value and broadcasting the ready condition.
+            e = &entry{ready: make(chan struct{})}
+            memo.cache[key] = e
+            memo.mu.Unlock()
+            e.res.value, e.res.err = memo.f(key)
+            close(e.ready) // broadcast ready condition
+        } else {
+            // This is a repeat request for this key.
+            memo.mu.Unlock()
+            <-e.ready // wait for ready condition
+        }
+    return e.res.value, e.res.err
+}
+```
+
+### Goroutines vs OS threads
+* Goroutine has dynamic size of stack, which is up to 1GB while the OS thread is typical 2MB.
+* Goroutines schedule implicitly by certain Go language constructs, like time.Sleep, channel block, mutex block, etc, no need to switch kernel context. While the OS threads schedule is invoked every few ms, need to switch kernel context.
+* GOMAXPROCS is the default the number of the CPU on the machine.
