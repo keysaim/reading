@@ -539,8 +539,9 @@ func (memo *Memo) Get(key string) (value interface{}, err error) {
 ```sh
 $ GOARCH=386 go build -i gopl.io/ch10/cross // it will install in $GOPATH/pkg/386
 ```
-* Files like 'net_linux.go' or 'asm_amd64.s', the compiler will compile it based on the env.
-* Comment *before* the file package declaration can also control the compiling. `// +build linux darwin` means only compile it for linux and darwin, `// +build ignore' means never compile this file.
+* Files like `net_linux.go` or `asm_amd64.s`, the compiler will compile it based on the env.
+
+* Comment *before* the file package declaration can also control the compiling. `// +build linux darwin` means only compile it for linux and darwin, `// +build ignore` means never compile this file.
 
 ### Go doc
 * The first sentence is usually a summary that starts with the declared name.
@@ -549,6 +550,7 @@ $ GOARCH=386 go build -i gopl.io/ch10/cross // it will install in $GOPATH/pkg/38
 // It returns the number of bytes written and any write error encountered.
 func Fprintf(w io.Writer, format string, a ...interface{}) (int, error)
 ```
+
 * Check the doc
 ```sh
 $ go doc json.encode
@@ -628,7 +630,7 @@ $ go list -f '{{join .Deps " "}}' strconv
 It lists all the dependencies. Actually, the '-f' is like using the text template to format the output.
 
 ## Section 11, Testing
-* Within *_test.go files, three kinds of functions are treated specially : tests, benchmarks, and examples. Function starts with 'Test' is for tests, 'Benchmark' is for benchmarks, 'Example' is for examples.
+* Within `*_test.go` files, three kinds of functions are treated specially : tests, benchmarks, and examples. Function starts with 'Test' is for tests, 'Benchmark' is for benchmarks, 'Example' is for examples.
 
 ### Tests
 * '-run' to run specific cases using the regular expression
@@ -646,7 +648,7 @@ $ go test -v -run="French|Canal"
 ```
 
 #### External Test Package
-* Sometimes, in case of a cycle of dependencies in test files, use the '_test' to declare a external test package. For example, in 'net/url', the test file may declare package like 'package url_test', the compiler will create an external package for this implicitly.
+* Sometimes, in case of a cycle of dependencies in test files, use the `_test` to declare a external test package. For example, in 'net/url', the test file may declare package like `package url_test`, the compiler will create an external package for this implicitly.
 ```sh
 $ go list -f={{.GoFiles}} fmt
      [doc.go format.go print.go scan.go]
@@ -657,10 +659,197 @@ $ go list -f={{.XTestGoFiles}} fmt
 ```
 The 'XTestGoFiles' is the external test package files.
 
-* In external package test file, you cannot access the private variable or functions in the tested package. In order to do while-box testing in external package test files, using a export file to export the private things. And this file is always called 'export_test.go'
-For example, the 'export_test.go' file for the 'fmt' package is:
+* In external package test file, you cannot access the private variable or functions in the tested package. In order to do while-box testing in external package test files, using a export file to export the private things. And this file is always called `export_test.go`
+For example, the `export_test.go` file for the 'fmt' package is:
 ```go
 package fmt
 var IsSpace = isSpace
 ```
 
+### Benchmark Testing
+* Test and check the memory
+```sh
+$ go test -bench=. -benchmem
+     PASS
+          BenchmarkIsPalindrome    2000000    807 ns/op  128 B/op  1 allocs/op
+```
+
+### Profiling
+* Profiling when testing
+```sh
+$ go test -cpuprofile=cpu.out
+$ go test -blockprofile=block.out
+$ go test -memprofile=mem.out
+```
+And then run the pprof tool
+```sh
+    $ go test -run=NONE -bench=ClientServerParallelTLS64 \
+             -cpuprofile=cpu.log net/http
+     PASS
+     BenchmarkClientServerParallelTLS64-8  1000
+        3141325 ns/op  143010 B/op  1747 allocs/op
+     ok      net/http       3.395s
+     $ go tool pprof -text -nodecount=10 ./http.test cpu.log
+     2570ms of 3590ms total (71.59%)
+     Dropped 129 nodes (cum <= 17.95ms)
+     Showing top 10 nodes out of 166 (cum >= 60ms)
+         flat  flat%   sum%     cum   cum%
+       1730ms 48.19% 48.19%  1750ms 48.75%  crypto/elliptic.p256ReduceDegree
+        230ms  6.41% 54.60%   250ms  6.96%  crypto/elliptic.p256Diff
+        120ms  3.34% 57.94%   120ms  3.34%  math/big.addMulVVW
+        110ms  3.06% 61.00%   110ms  3.06%  syscall.Syscall
+         90ms  2.51% 63.51%  1130ms 31.48%  crypto/elliptic.p256Square
+         70ms  1.95% 65.46%   120ms  3.34%  runtime.scanobject
+         60ms  1.67% 67.13%   830ms 23.12%  crypto/elliptic.p256Mul
+         60ms  1.67% 68.80%   190ms  5.29%  math/big.nat.montgomery
+         50ms  1.39% 70.19%    50ms  1.39%  crypto/elliptic.p256ReduceCarry
+         50ms  1.39% 71.59%    60ms  1.67%  crypto/elliptic.p256Sum
+```
+The `-nodecount=10` means showing only 10 rows
+
+### Example Testing
+* For example test `ExampleFuncName`, the `go doc` will add this example to the function `FuncName` automatically.
+
+## Section 12, Reflection
+### reflect, type and value
+* `reflect.TypeOf` return the dynamic type of the interface value. The '%T' in `fmt` is using this.
+```go
+var w io.Writer = os.Stdout
+fmt.Println(reflect.TypeOf(w)) // "*os.File"
+```
+
+* `reflect.ValueOf` to get the value
+    ```go
+    v := reflect.ValueOf(3) // a reflect.Value
+    fmt.Println(v)          // "3"
+    fmt.Printf("%v\n", v)   // "3"
+    fmt.Println(v.String()) // NOTE: "<int Value>"
+    t := v.Type() // a reflect.Type
+    fmt.Println(t.String()) // "int"
+    v := reflect.ValueOf(3) // a reflect.Value
+    x := v.Interface() // an interface{}
+    i := x.(int) // an int 
+    fmt.Printf("%d\n", i) // "3"
+    ```
+
+* `reflect.Value.Kind` usage. Kind of zero value is `reflect.Invalid`
+    ```go
+	func formatAtom(v reflect.Value) string {
+			 switch v.Kind() {
+			 case reflect.Invalid:
+				 return "invalid"
+			 case reflect.Int, reflect.Int8, reflect.Int16,
+				 reflect.Int32, reflect.Int64:
+				 return strconv.FormatInt(v.Int(), 10)
+			 case reflect.Uint, reflect.Uint8, reflect.Uint16,
+				 reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				 return strconv.FormatUint(v.Uint(), 10)
+			 // ...floating-point and complex cases omitted for brevity...
+			 case reflect.Bool:
+				 return strconv.FormatBool(v.Bool())
+			 case reflect.String:
+				 return strconv.Quote(v.String())
+			 case reflect.Chan, reflect.Func, reflect.Ptr, reflect.Slice, reflect.Map:
+				 return v.Type().String() + " 0x" +
+					 strconv.FormatUint(uint64(v.Pointer()), 16)
+			 default: // reflect.Array, reflect.Struct, reflect.Interface
+				 return v.Type().String() + " value"
+	} }
+    ```
+
+* reflect for the Composite Types
+    ```go
+	func display(path string, v reflect.Value) {
+			 switch v.Kind() {
+			 case reflect.Invalid:
+				 fmt.Printf("%s = invalid\n", path)
+			 case reflect.Slice, reflect.Array:
+				 for i := 0; i < v.Len(); i++ {
+					 display(fmt.Sprintf("%s[%d]", path, i), v.Index(i))
+				 }
+			 case reflect.Struct:
+				 for i := 0; i < v.NumField(); i++ {
+					 fieldPath := fmt.Sprintf("%s.%s", path, v.Type().Field(i).Name)
+					 display(fieldPath, v.Field(i))
+				 }
+			 case reflect.Map:
+				 for _, key := range v.MapKeys() {
+					 display(fmt.Sprintf("%s[%s]", path,
+						 formatAtom(key)), v.MapIndex(key))
+				 }
+			 case reflect.Ptr:
+				 if v.IsNil() {
+					 fmt.Printf("%s = nil\n", path)
+				 } else {
+					 display(fmt.Sprintf("(*%s)", path), v.Elem())
+				 }
+			 case reflect.Interface:
+				 if v.IsNil() {
+					 fmt.Printf("%s = nil\n", path)
+				 } else {
+					 fmt.Printf("%s.type = %s\n", path, v.Elem().Type())
+					 display(path+".value", v.Elem())
+				 }
+			 default: // basic types, channels, funcs
+				 fmt.Printf("%s = %s\n", path, formatAtom(v))
+			 }
+	}
+    ```
+* Set value
+    ```go
+	x := 1
+	rx := reflect.ValueOf(&x).Elem()
+	rx.SetInt(2) // OK, x = 2
+	rx.Set(reflect.ValueOf(3)) // OK, x = 3
+	rx.SetString("hello") // panic: string is not assignable to int
+	rx.Set(reflect.ValueOf("hello")) // panic: string is not assignable to int
+	var y interface{}
+	ry := reflect.ValueOf(&y).Elem()
+	ry.SetInt(2) // panic: SetInt called on interface Value
+	ry.Set(reflect.ValueOf(3)) // OK, y = int(3)
+	ry.SetString("hello") // panic: SetString called on interface Value
+	ry.Set(reflect.ValueOf("hello")) // OK, y = "hello"
+    ```
+
+* We can use reflect to access the unexport fields of a struct, but you cannot update it, because the reflect will records whether it's exported or not.
+    ```go
+	stdout := reflect.ValueOf(os.Stdout).Elem() // *os.Stdout, an os.File var
+    fmt.Println(stdout.Type())                  // "os.File"
+    fd := stdout.FieldByName("fd")
+    fmt.Println(fd.Int()) // "1"
+    fd.SetInt(2)          // panic: unexported field
+    fmt.Println(fd.CanAddr(), fd.CanSet()) // "true false"
+    ```
+
+* access the struct tags
+    ```go
+	// Build map of fields keyed by effective name.
+		fields := make(map[string]reflect.Value)
+		v := reflect.ValueOf(ptr).Elem() // the struct variable
+		for i := 0; i < v.NumField(); i++ {
+			fieldInfo := v.Type().Field(i) // a reflect.StructField
+			tag := fieldInfo.Tag           // a reflect.StructTag
+			name := tag.Get("http")
+			if name == "" {
+				name = strings.ToLower(fieldInfo.Name)
+			}
+			fields[name] = v.Field(i)
+		}
+    ```
+
+* access the methods. Using `reflect.Value.Call` is possible to call the method
+    ```go
+	// Print prints the method set of the value x.
+     func Print(x interface{}) {
+         v := reflect.ValueOf(x)
+         t := v.Type()
+         fmt.Printf("type %s\n", t)
+         for i := 0; i < v.NumMethod(); i++ {
+             methType := v.Method(i).Type()
+             fmt.Printf("func (%s) %s%s\n", t, t.Method(i).Name,
+                 strings.TrimPrefix(methType.String(), "func"))
+        }
+    }
+    ```
+
+* ***Reflect is fragile and will cause terrible performance issue is it's in the critical code path.***
