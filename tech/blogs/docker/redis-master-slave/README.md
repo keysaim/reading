@@ -71,14 +71,14 @@ a3ca293915cb
 ## 启动containers
 本案例中containers的有关启动配置如下：
 
-|   container  |    service   |   ports   |    volumes    |        links        |
-|:------------:|:------------:|:---------:|:-------------:|:-------------------:|
-| redis-master | redis-server |     -     |  master:/data |          -          |
-| redis-slave1 | redis-server |     -     |  slave1:/data | redis-master:master |
-| redis-slave2 | redis-server |     -     |  slave2:/data | redis-master:master |
-|     app1     |  django app  |     -     |   app:/data   |  redis-master:redis |
-|     app2     |  django app  |     -     |   app:/data   |  redis-master:redis |
-|    haproxy   |    haproxy   | 6301:6301 | haproxy:/data | app1:app1 app2:app2 |
+|   container  |  image  |    service   |   ports   |    volumes    |        links        |
+|:------------:|:-------:|:------------:|:---------:|:-------------:|:-------------------:|
+| redis-master |  redis  | redis-server |     -     |  master:/data |          -          |
+| redis-slave1 |  redis  | redis-server |     -     |  slave1:/data | redis-master:master |
+| redis-slave2 |  redis  | redis-server |     -     |  slave2:/data | redis-master:master |
+|     app1     |  django |  django app  |     -     |   app:/data   |  redis-master:redis |
+|     app2     |  django |  django app  |     -     |   app:/data   |  redis-master:redis |
+|    haproxy   | haproxy |    haproxy   | 6301:6301 | haproxy:/data | app1:app1 app2:app2 |
 
 ### 启动redis
 * 启动redis-master
@@ -88,7 +88,7 @@ a3ca293915cb
     # docker run -it --name redis-master -v `pwd`/master:/data redis /bin/bash
     root@3d187b223f56:/data#
     ```
-    添加一个测试条目，取key为`redis_app`，改测试条目将被app1跟app2查询:
+    添加一个测试条目，取key为`redis_app`，该测试条目将被app1跟app2查询:
     ```
     root@3d187b223f56:/data# redis-cli
     127.0.0.1:6379> set redis_app "Hello redis app!"
@@ -251,6 +251,7 @@ a3ca293915cb
         ```
 
     * 初始化数据库
+
         在启动django程序之前，必须初始化数据库。默认情况下，采用的sqlite数据库。
         ```
 		root@2298dd360bbd:/data/redisapp# python manage.py migrate
@@ -274,9 +275,11 @@ a3ca293915cb
     至此，app1已经全部配置并初始化完毕。
 
 * 配置app2
+
     app2与app1共享同一个Django项目，因此不需要为app2做任何特别的配置。
 
 * 配置haproxy
+
     haproxy依赖于它的配置文件，在配置文件中必须把app1跟app2都加进去，这样haproxy就可以为他们做load balance了。
     ```
     # vim haproxy/haproxy.cfg
@@ -323,7 +326,9 @@ a3ca293915cb
 ## 启动services
 ### 启动redis service
 * 启动redis-master service
+
     * attach `redis-master` container
+
         ```
         # docker start redis-master
         redis-master
@@ -331,6 +336,7 @@ a3ca293915cb
         root@3d187b223f56:/data#
         ```
     * 启动service
+
         ```
         root@3d187b223f56:/data# redis-server redis.conf
         root@3d187b223f56:/data# redis-cli
@@ -340,6 +346,7 @@ a3ca293915cb
 
 * 启动redis-slave1 service
     * attach `redis-slave1` container
+
         ```
         # docker start redis-slave1
         redis-slave1
@@ -355,18 +362,22 @@ a3ca293915cb
         ```
 
 * 启动redis-slave2 service
+
     与启动redis-slave1 service一样，这里不再赘述。
 
 ### 启动app service
 * 启动app1 service
     * attach `app1` container
+
         ```
         # docker start app1
         app1
         root@neil-centos1:hademo# docker attach app1
         root@7e6e49321993:/# 
         ```
+
     * 启动service
+
         ```
         root@7e6e49321993:/data# cd redisapp/
         root@7e6e49321993:/data# python manage.py runserver 0.0.0.0:8001
@@ -382,6 +393,7 @@ a3ca293915cb
 
 * 启动app2 service
     * attach `app2` container
+
         ```
          docker start app2
          app2
@@ -389,6 +401,7 @@ a3ca293915cb
          root@13d9f084c18b:/#
         ```
     * 启动service
+
         ```
         root@13d9f084c18b:/data# cd redisapp/
         root@13d9f084c18b:/data/redisapp# python manage.py runserver 0.0.0.0:8002
@@ -404,13 +417,16 @@ a3ca293915cb
 
 ### 启动haproxy service
 * attach `haproxy` container
+
     ```
     # docker start haproxy
     haproxy
     # docker attach haproxy
     root@7e0f805cd85c:/#
     ```
+
 * 启动service
+
     ```
     root@7e0f805cd85c:/data# haproxy -f haproxy.cfg
     [WARNING] 136/130034 (6) : Proxy 'redis_proxy': in multi-process mode, stats will be limited to process assigned to the current request.
