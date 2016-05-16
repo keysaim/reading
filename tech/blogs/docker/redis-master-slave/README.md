@@ -154,12 +154,14 @@ a3ca293915cb
 ## 配置
 ### 配置redis
 * 获取redis初始配置
+
     本文采用的版本为3.2.0, 可通过如下方式获取
     ```
     # wget https://raw.githubusercontent.com/antirez/redis/3.2.0/redis.conf
     ```
 
 * 配置redis-master
+
     拷贝`redis.conf`到`master`目录.
     ```
     # cp redis.conf master/
@@ -174,6 +176,7 @@ a3ca293915cb
     由于已经将`./master`挂载到container的`/data`目录，因此本地的改动在container里面也是可见的。
 
 * 配置redis-slave1
+
     拷贝`redis.conf`到`slave1`目录.
     ```
     # cp redis.conf slave1/
@@ -189,6 +192,7 @@ a3ca293915cb
     最后一项`slaveof`将slave1设置为master的slave。同样，由于已经将`./slave1`挂载到container的`/data`目录，因此本地的改动在container里面也是可见的。
 
 * 配置redis-slave2
+
     配置方式与`redis-slave1`一致，因此，直接拷贝`slave1/redis.conf`到`slave2`目录.
     ```
     # cp slave1/redis.conf slave2/
@@ -196,6 +200,7 @@ a3ca293915cb
 
 ### 配置Django App
 * 配置app1
+
     首先需要创建Django项目,这需要登录到`app1`系统中才能够调用Django命令来创建。
     ```
     # docker attach app1
@@ -208,7 +213,9 @@ a3ca293915cb
     manage.py  redisapp
     ```
     接下来需要编辑Django代码以支持本案例中一个简单的API：`/query/`，此API将获取redis中的key为`redis_app`的值（请注意，该值在上面启动redis的时候已经设置好了），并将结果返回给浏览器。由于container中大量的linux工具都没有，因此需要到主机上去编辑。`app1`container将`app`目录挂载进去了，因此在container中的创建的Django项目实际上在`app`目录下也是可见的。
+
     * 编辑`views.py`文件
+
         ```
         # vim app/redisapp/redisapp/views.py
         ```
@@ -217,6 +224,7 @@ a3ca293915cb
         ```
 
     * 编辑`urls.py`文件
+
         ```
         # vim app/redisapp/redisapp/views.py
         ```
@@ -234,6 +242,7 @@ a3ca293915cb
         ```
 
     * 编辑`settings.py`文件
+
         ```
         # vim app/redisapp/redisapp/settings.py
         ```
