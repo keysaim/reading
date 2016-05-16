@@ -61,6 +61,7 @@ a3ca293915cb
 ```
 
 从上，本文各版本采用如下:
+
 | service | version |
 |---------|---------|
 | haproxy | 1.6.5   |
@@ -69,6 +70,7 @@ a3ca293915cb
 
 ## 启动containers
 本案例中containers的有关启动配置如下：
+
 |   container  |    service   |   ports   |    volumes    |        links        |
 |:------------:|:------------:|:---------:|:-------------:|:-------------------:|
 | redis-master | redis-server |     -     |  master:/data |          -          |
