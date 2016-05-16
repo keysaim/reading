@@ -61,13 +61,23 @@ a3ca293915cb
 ```
 
 从上，本文各版本采用如下:
-| 应用 | 版本 |
-| ---- |:---- |
-| haproxy | 1.6.5 |
-| django | 1.9.6 |
-| redis | 3.2.0 |
+| service | version |
+|---------|---------|
+| haproxy | 1.6.5   |
+| django  | 1.9.6   |
+| redis   | 3.2.0   |
 
 ## 启动containers
+本案例中containers的有关启动配置如下：
+|   container  |    service   |   ports   |    volumes    |        links        |
+|:------------:|:------------:|:---------:|:-------------:|:-------------------:|
+| redis-master | redis-server |     -     |  master:/data |          -          |
+| redis-slave1 | redis-server |     -     |  slave1:/data | redis-master:master |
+| redis-slave2 | redis-server |     -     |  slave2:/data | redis-master:master |
+|     app1     |  django app  |     -     |   app:/data   |  redis-master:redis |
+|     app2     |  django app  |     -     |   app:/data   |  redis-master:redis |
+|    haproxy   |    haproxy   | 6301:6301 | haproxy:/data | app1:app1 app2:app2 |
+
 ### 启动redis
 * 启动redis-master
     在本地当前目录下创建子目录`master`，并将`master`挂载到container里的`/data`目录。container名字为`redis-master`。为了方便调试，这里同时启动交互式模式`-it`，并同时打开`bash`
@@ -308,4 +318,101 @@ a3ca293915cb
     ```
     如果需要调试，可以吧`global`中的`debug`打开。特别注意的是关于app1跟app2的配置，必须跟他们启动的端口保持一致。因为在前面已经通过`--link`将`app`以及`app2`连接进来，因此在写`address:port`时候可以直接使用app1跟app2。
 
+## 启动services
+### 启动redis service
+* 启动redis-master service
+    * attach `redis-master` container
+        ```
+        # docker start redis-master
+        redis-master
+        # docker attach redis-master
+        root@3d187b223f56:/data#
+        ```
+    * 启动service
+        ```
+        root@3d187b223f56:/data# redis-server redis.conf
+        root@3d187b223f56:/data# redis-cli
+        127.0.0.1:6379> get redis_app
+        "Hello redis app!"
+        ```
 
+* 启动redis-slave1 service
+    * attach `redis-slave1` container
+        ```
+        # docker start redis-slave1
+        redis-slave1
+        root@neil-centos1:hademo# docker attach redis-slave1
+        root@cef73ae816be:/data# redis-cli
+        ```
+    * 启动service
+        ```
+        root@cef73ae816be:/data# redis-server redis.conf
+        root@cef73ae816be:/data# redis-cli
+        127.0.0.1:6379> get redis_app
+        "Hello redis app!"
+        ```
+
+* 启动redis-slave2 service
+    与启动redis-slave1 service一样，这里不再赘述。
+
+### 启动app service
+* 启动app1 service
+    * attach `app1` container
+        ```
+        # docker start app1
+        app1
+        root@neil-centos1:hademo# docker attach app1
+        root@7e6e49321993:/# 
+        ```
+    * 启动service
+        ```
+        root@7e6e49321993:/data# cd redisapp/
+        root@7e6e49321993:/data# python manage.py runserver 0.0.0.0:8001
+        Performing system checks...
+
+        System check identified no issues (0 silenced).
+        May 16, 2016 - 12:51:39
+        Django version 1.9.6, using settings 'redisapp.settings'
+        Starting development server at http://0.0.0.0:8001/
+        Quit the server with CONTROL-C.
+
+        ```
+
+* 启动app2 service
+    * attach `app2` container
+        ```
+         docker start app2
+         app2
+         # docker attach app2
+         root@13d9f084c18b:/#
+        ```
+    * 启动service
+        ```
+        root@13d9f084c18b:/data# cd redisapp/
+        root@13d9f084c18b:/data/redisapp# python manage.py runserver 0.0.0.0:8002
+        Performing system checks...
+
+        System check identified no issues (0 silenced).
+        May 16, 2016 - 12:56:08
+        Django version 1.9.6, using settings 'redisapp.settings'
+        Starting development server at http://0.0.0.0:8002/
+        Quit the server with CONTROL-C.
+
+        ```
+
+### 启动haproxy service
+* attach `haproxy` container
+    ```
+    # docker start haproxy
+    haproxy
+    # docker attach haproxy
+    root@7e0f805cd85c:/#
+    ```
+* 启动service
+    ```
+    root@7e0f805cd85c:/data# haproxy -f haproxy.cfg
+    [WARNING] 136/130034 (6) : Proxy 'redis_proxy': in multi-process mode, stats will be limited to process assigned to the current request.
+    root@7e0f805cd85c:/data#
+    ```
+
+至此，所有的service已经成功启动。可以通过uri `http://<host ip>:6031/query/`访问本案例中web service。还可以通过`http://<host ip>:6031/stats`来查询haproxy的统计信息。
