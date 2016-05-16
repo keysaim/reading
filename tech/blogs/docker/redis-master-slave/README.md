@@ -4,6 +4,6 @@
 
 ![](demoarch.png)
 
-<img src="demoarch" alt="" style="width: 400px;"/>
+<img src="demoarch.png" alt="" style="width: 400px;"/>
 
 
