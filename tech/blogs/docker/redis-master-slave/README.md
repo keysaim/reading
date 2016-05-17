@@ -464,3 +464,6 @@ a3ca293915cb
     ```
 
 至此，所有的service已经成功启动。可以通过uri `http://<host ip>:6031/query/`访问本案例中web service。还可以通过`http://<host ip>:6031/stats`来查询haproxy的统计信息。
+
+## 结语
+本文中所涉及的配置以及代码可以在这个github repo找到: https://github.com/keysaim/demos/tree/master/docker-redis-django
