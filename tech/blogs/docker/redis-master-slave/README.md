@@ -214,13 +214,34 @@ a3ca293915cb
     ```
     接下来需要编辑Django代码以支持本案例中一个简单的API：`/query/`，此API将获取redis中的key为`redis_app`的值（请注意，该值在上面启动redis的时候已经设置好了），并将结果返回给浏览器。由于container中大量的linux工具都没有，因此需要到主机上去编辑。`app1`container将`app`目录挂载进去了，因此在container中的创建的Django项目实际上在`app`目录下也是可见的。
 
+    * 安卓redis client
+
+        由于django app需要访问redis数据库，因此需要先安装redis client
+        ```
+        root@7e6e49321993:/data/redisapp# pip install redis
+        Collecting redis
+          Downloading redis-2.10.5-py2.py3-none-any.whl (60kB)
+              100% |████████████████████████████████| 61kB 123kB/s
+              Installing collected packages: redis
+              Successfully installed redis-2.10.5
+        ```
+
     * 编辑`views.py`文件
 
         ```
         # vim app/redisapp/redisapp/views.py
         ```
         初始状态，`views.py`文件并不存在，添加并编辑，内容如下：
-        ```
+        ```python
+		from django.http import HttpResponse
+		import socket
+		import redis
+
+
+		def query(request):
+			r = redis.StrictRedis(host='redis', port=6379, db=0)
+			value = r.get('redis_app')
+			return HttpResponse('hello world from ' + socket.gethostname() + ', with value: ' + str(value))
         ```
 
     * 编辑`urls.py`文件
