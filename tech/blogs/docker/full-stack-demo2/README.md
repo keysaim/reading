@@ -313,14 +313,19 @@ redis-slave2的构建与redis-slave1除了名字不同之外基本上一模一�
         * 执行格式：`ENTRYPOINT ["executable", "param1", "param2"]`
 
             在执行格式中，可以指定运行的执行命令以及对应的参数，这种格式是推荐的格式。此格式中命令的定义必须是json array的格式，因此，必须使用双引号`"`而不是单引号`'`。
+
             ***特别需要注意的是***，使用该格式时，不需要指定所有的参数，而可以选择两种不同的方式提供剩余的参数：
+
             一种是在运行container时，所有在`docker run <image>`后面的参数都将添加到`ENTRYPOINT`的最后面，例如，在本例中，`ENTRYPOINT`指定的命令为`python manage.py runserver`，如果运行`docker run app 0.0.0.0:8001`，那么在container中实际执行的命令将是`python manage.py runserver 0.0.0.0:8001`；
+
             另一种就是通过`CMD`指令提供剩余的默认参数，这点在接下来`CMD`的介绍中会详述。其实现的功能也是类似，只不过在Dockerfile中直接进行定义，而前面一种则可以在运行时动态改变。
+
             很明显，如果两种都提供了，前一种将覆盖后一种定义的参数。
             
         * shell格式：`ENTRYPOINT command param1 param2`
 
             在shell格式中，也可以指定运行时执行的命令及对应的参数，不同的是指定的命令将由`shell`启动。比如如果指定`ENTRYPOINT python manage.py runserver 0.0.0.0:8080`，那么其实相当于采用执行格式的定义：`ENTRYPOINT ["/bin/sh", "-c", "python", "manage.py", "runserver", "0.0.0.0:8080"]`。
+
             ***必须注意的是***，在此格式下，运行的命令将不能够收到Unix signals，比如，在`docker stop`时将不会收到`SIGTERM`信号。另外，与执行格式不同的是，此格式也无法接受其它参数，必须在指令中定义所有的参数。
 
 
