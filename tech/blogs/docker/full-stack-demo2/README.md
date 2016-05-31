@@ -15,8 +15,7 @@ ok, 下面咱们就开始讲述Docker的自动化构建部分。讲述之前，�
     <img src="../full-stack-demo/demoarch.png" alt="" width="400"/>
 </div>
 
-## Images构建
-### Redis-master构建
+## Redis-master构建
 在[上一篇][previous blog]中，redis-master的构建主要包括如下步骤：
 
 * 获取redis image
@@ -119,13 +118,13 @@ CMD redis-server /data/redis.conf
     ```sh
     daemonize yes
     ```
-    其意思就是指定redis-server以后台daemon的形式运行。这样我们就可以解释清楚了，当前的配置文件是的redis-server运行在后台，那么container肯定会自动退出了。
+    其意思就是指定redis-server以后台daemon的形式运行。这样我们就可以解释清楚了，当前的配置文件使得redis-server运行在后台，container肯定会自动退出了。
 
     那么问题来了，如何解决呢？很自然的我们会想到，修改配置让其运行在前台就好了，确实如此，修改如下：
     ```
     daemonize no
     ```
-    我们在container外面修改了配置，很明显不会对已经存在的container有任何影响。当前的container是由当前的image生成的，因此，为了能够是的改动生效，咱们得重新构建image，并重新启动：
+    我们在container外面修改了配置，很明显不会对已经存在的container有任何影响。当前的container是由当前的image生成的，因此，为了能够使得改动生效，咱们得重新构建image，并重新启动：
     * 首先，删除当前的container
 
         ```
@@ -166,7 +165,7 @@ CMD redis-server /data/redis.conf
         ```
         可以看到，container成功运行起来了。
 
-    修改配置，将service运行在前台确实是一种常用的解决办法，但是在有些情况下却并不适用，比如入股需要同时启动多个service，或者需要对service进行监控以确保在service crash的时候能够自动重启等。对于这些场景，可以考虑采用另一种解决方案：采用supervisord管理服务。关于如何使用supervisord，请参照[官方的教程](https://docs.docker.com/engine/admin/using_supervisord/)。
+    修改配置，将service运行在前台确实是一种常用的解决办法，但是在有些情况下却并不适用，比如如果需要同时启动多个service，或者需要对service进行监控以确保在service crash的时候能够自动重启等。对于这些场景，可以考虑采用另一种解决方案：采用supervisord管理服务。关于如何使用supervisord，请参照[官方的教程](https://docs.docker.com/engine/admin/using_supervisord/)。
 
 * 简单测试
 
@@ -192,7 +191,7 @@ CMD redis-server /data/redis.conf
 
 至此，redis-master已经构建并运行成功。接下来我们将讲述其它服务是如何构建的。
 
-### redis-slave1构建
+## redis-slave1构建
 在上一节中，我们已经对基于Dockerfile的构建方式有了较为详细的介绍，这里将主要讲述不一样的地方。
 * 编写Dockerfile
 
@@ -258,7 +257,7 @@ CMD redis-server /data/redis.conf
 
 * 简单测试
 
-    同样，需要对启动的服务进行简单的测试。redis-slave1由于是redis-master的一个slave，因此，我们刚刚在master中设置的`master`值，在redis-slave1中也应该可以看到，我们来测试一下：
+    同样，需要对启动的服务进行简单的测试。redis-slave1由于是redis-master的一个slave，因此，我们刚刚在master中设置的`redis_app`值，在redis-slave1中也应该可以看到，我们来测试一下：
     ```
     # docker exec -it redis-slave1 /bin/bash
     root@570c03cdb20c:/data# redis-cli
@@ -266,14 +265,14 @@ CMD redis-server /data/redis.conf
     "test"
     127.0.0.1:6379>
     ```
-    与之前一样，我们也启动一个交互式的bash用来测试，这里可以看到，在redis-slave1，我们并没有做任何值得设置，却直接获取到了redis-master中设置的`master`值。可见，redis-slave1工作正常。
+    与之前一样，我们也启动一个交互式的bash用来测试，这里可以看到，在redis-slave1，我们并没有做任何值得设置，却直接获取到了redis-master中设置的`redis_app`值。可见，redis-slave1工作正常。
 
 
-### redis-slave2构建
+## redis-slave2构建
 
 redis-slave2的构建与redis-slave1除了名字不同之外基本上一模一样，这里讲不再赘述。
 
-### app1的构建
+## app1的构建
 在[上一篇][previous blog]中, 我们已经创建了一个Django的APP，本文中我们继续使用它，你可以[在这里](https://github.com/keysaim/demos/tree/master/docker-redis-django/app/redisapp)找到APP的代码。假定代码放在`app/redisapp`下面。
 
 * 编写Dockerfile
@@ -312,20 +311,30 @@ redis-slave2的构建与redis-slave1除了名字不同之外基本上一模一�
 
         `ENTRYPOINT`指令有两种格式：
         * 执行格式：`ENTRYPOINT ["executable", "param1", "param2"]`
-            在执行格式中，可以指定运行的执行命令以及对应的参数，这种格式是推荐的格式。改格式中命令的定义必须是json array的格式，因此，必须使用双引号`"`而不是单引号`'`。***特别需要注意的是***，使用改格式时，可以不需要指定所有的参数，而可以选择两种不同的方式提供剩余的参数：一种是在运行container时，所有在`docker run <image>`后面的参数都将添加到`ENTRYPOINT`的最后面，例如，在本例中，`ENTRYPOINT`指定的命令为`python manage.py runserver`，如果运行`docker run app 0.0.0.0:8001`，那么在container中实际执行的命令将是`python manage.py runserver 0.0.0.0:8001`；另一种就是通过`CMD`指令提供剩余的默认参数，这点在接下来`CMD`的介绍中会详述。其实现的功能也是类似，只不过在Dockerfile中直接进行定义，而前面一种则可以在运行时动态改变。很明显，如果两种都提供了，前一种将覆盖后一种定义的参数。
+
+            在执行格式中，可以指定运行的执行命令以及对应的参数，这种格式是推荐的格式。此格式中命令的定义必须是json array的格式，因此，必须使用双引号`"`而不是单引号`'`。
+            ***特别需要注意的是***，使用该格式时，不需要指定所有的参数，而可以选择两种不同的方式提供剩余的参数：
+            一种是在运行container时，所有在`docker run <image>`后面的参数都将添加到`ENTRYPOINT`的最后面，例如，在本例中，`ENTRYPOINT`指定的命令为`python manage.py runserver`，如果运行`docker run app 0.0.0.0:8001`，那么在container中实际执行的命令将是`python manage.py runserver 0.0.0.0:8001`；
+            另一种就是通过`CMD`指令提供剩余的默认参数，这点在接下来`CMD`的介绍中会详述。其实现的功能也是类似，只不过在Dockerfile中直接进行定义，而前面一种则可以在运行时动态改变。
+            很明显，如果两种都提供了，前一种将覆盖后一种定义的参数。
             
         * shell格式：`ENTRYPOINT command param1 param2`
-            在shell格式中，也可以指定运行时执行的命令及对应的参数，不同的是指定的命令将由`shell`启动。比如如果指定`ENTRYPOINT python manage.py runserver 0.0.0.0:8080`，那么其实相当于采用执行格式的定义：`ENTRYPOINT ["/bin/sh", "-c", "python", "manage.py", "runserver", "0.0.0.0:8080"]`。***必须注意的是***，在改格式下，运行的命令将不能够收到Unix signals，比如，在`docker stop`时将不会收到`SIGTERM`信号。另外，与执行格式不同的是，改格式也无法接受其它参数，必须在改指令中定义所有的参数。
+
+            在shell格式中，也可以指定运行时执行的命令及对应的参数，不同的是指定的命令将由`shell`启动。比如如果指定`ENTRYPOINT python manage.py runserver 0.0.0.0:8080`，那么其实相当于采用执行格式的定义：`ENTRYPOINT ["/bin/sh", "-c", "python", "manage.py", "runserver", "0.0.0.0:8080"]`。
+            ***必须注意的是***，在此格式下，运行的命令将不能够收到Unix signals，比如，在`docker stop`时将不会收到`SIGTERM`信号。另外，与执行格式不同的是，此格式也无法接受其它参数，必须在指令中定义所有的参数。
 
 
         `CMD`命令有三种格式，分别代表了三种不同的用法：
         * 执行格式：`CMD ["executable","param1","param2"]`
+
             与`ENTRYPOINT`类似，在执行格式中，可以指定运行的执行命令以及对应的参数，这种格式是推荐的格式。改格式中命令的定义必须是json array的格式，因此，必须使用双引号`"`而不是单引号`'`。
 
         * 默认参数格式：`CMD ["param1","param2"]`
+
             默认参数格式主要用来服务于`ENTRYPOINT`指令，我们知道，在`ENTRYPOINT`指令中，我们可以指定container运行时执行的命令以及相应的参数，但是有时候有些参数我们并不想直接在`ENTRYPOINT`中全部指定，这样的话我们可以使用`CMD`来存放其余的参数。`CMD`定义的参数将会直接加在`ENTRYPOINT`指令的后面。在外面的例子中，可以看到采用了默认参数格式，因此运行时默认的命令将是：`python manage.py runserver 0.0.0.0:8080`。
 
         * shell格式：`CMD command param1 param2`
+
             这个与`ENTRYPOINT`的shell格式基于类似。
 
         如果同时定义多个`CMD`指令时，只有最后一个有效。虽然`ENTRYPOINT`与`CMD`都可以直接定义执行的命令，但是如果同时两者存在，则只有`ENTRYPOINT`有效，而`CMD`则会以默认参数的形式添加到`ENTRYPOINT`之后，所以请务必注意这种情形。
@@ -417,7 +426,7 @@ redis-slave2的构建与redis-slave1除了名字不同之外基本上一模一�
     ```
     这里启动container `app1`时，传入参数`0.0.0.0:8001`使得其运行在8001端口上面。
 
-### app2的构建
+## app2的构建
 app2的构建与app1一致，并且共用image `app`，只是在启动container的时候改用端口8002，因此这里不再赘述。
 ```
 # docker run -d --name app2 --link redis-master:redis app 0.0.0.0:8002
@@ -427,7 +436,7 @@ CONTAINER ID        IMAGE               COMMAND                  CREATED        
 d201177cdb94        app                 "python manage.py run"   20 seconds ago      Up 17 seconds                           app2
 ```
 
-### HaProxy的构建
+## HaProxy的构建
 
 * 编写Dockerfile
 
