@@ -1,4 +1,4 @@
-# 用docker搭建全栈式应用 (二）—— 自动化构建
+# 用docker搭建全栈式应用 (二）—— 构建篇
 ## 简介
 在[上一篇][previous blog]中, 我们已经较为详细的描述如何基于docker，搭建一套全栈式应用。web端采用Django，并使用HaProxy作为负载均衡。数据库采用redis，并使用master-slave的部署方式。前文基于从官方的docker registry的images，讲述了一步步如何启动配置各项服务。但是在实际部署中，不可能全部手动的完成这些事情，本文将讲述基于Dockerfile，来自动生成所需的Docker image，并将讲述基于构建的image如何启动服务。
 
